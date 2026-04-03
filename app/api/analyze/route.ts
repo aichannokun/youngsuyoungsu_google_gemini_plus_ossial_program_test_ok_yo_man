@@ -10,11 +10,14 @@ export async function POST(req: Request) {
     const mimeType = file.type || 'image/jpeg';
     const base64Data = Buffer.from(await file.arrayBuffer()).toString('base64');
 
+   // ... 기존 import 생략
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-    // 2.0 대신 한도가 넉넉한 1.5-flash-latest를 사용합니다.
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+    
+    // 로컬에서 '탕탕집'을 찾아낸 바로 그 모델명으로 교체합니다.
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const prompt = "영수증 날짜, 상호명, 품목, 합계 금액을 파악해서 'YYYY-MM-DD | 상호명 | 핵심품목 | 금액원' 형태로 한 줄만 반환해줘.";
+  // ... 기존 코드와 동일
     
     const result = await model.generateContent([
       prompt,
