@@ -4,5 +4,4 @@
 
 [functions]
   directory = "netlify/functions"
-  timeout = 30
-  node_bundler = "esbuild"
+  # timeout cannot be set here; use Netlify plan or background functions for longer runs
