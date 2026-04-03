@@ -12,7 +12,8 @@ export async function POST(req: Request) {
     const base64Data = Buffer.from(await file.arrayBuffer()).toString('base64');
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // 모델 이름을 아래와 같이 최신형으로 변경합니다.
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
     const prompt = "영수증 날짜, 상호명, 품목, 합계 금액을 파악해서 'YYYY-MM-DD | 상호명 | 핵심품목 | 금액원' 형태로 한 줄만 반환해줘.";
     
