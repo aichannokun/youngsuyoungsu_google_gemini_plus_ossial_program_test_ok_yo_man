@@ -53,6 +53,7 @@ export async function POST(req: Request) {
     for (const file of files) {
       const base64Data = Buffer.from(await file.arrayBuffer()).toString('base64');
       let lastError = null;
+      let success = false;
 
       for (const name of modelNames) {
         try {
@@ -62,16 +63,15 @@ export async function POST(req: Request) {
             { inlineData: { data: base64Data, mimeType: file.type || 'image/jpeg' } },
           ]);
           results.push(result.response.text().trim());
-          break; // 성공했으면 다음 파일로
+          success = true;
+          break;
         } catch (err: any) {
           lastError = err;
           continue;
         }
       }
 
-      if (lastError && results.length < files.indexOf(file) + 1) {
-        throw lastError;
-      }
+      if (!success) throw lastError;
     }
 
     return NextResponse.json({ text: results.join('\n\n---\n\n') });
