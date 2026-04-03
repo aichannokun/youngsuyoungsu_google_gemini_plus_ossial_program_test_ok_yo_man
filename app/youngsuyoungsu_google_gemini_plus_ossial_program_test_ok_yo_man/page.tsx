@@ -13,59 +13,62 @@ export default function Home() {
     }
   }, [loading]);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setLoading(true); setResult('');
     const formData = new FormData();
     formData.append('image', file);
-    const res = await fetch('/api/analyze', { method: 'POST', body: formData });
-    const data = await res.json();
-    setResult(res.ok ? data.text : "🚨 에러 발생");
+    try {
+      const res = await fetch('/api/analyze', { method: 'POST', body: formData });
+      const data = await res.json();
+      setResult(res.ok ? data.text : "🚨 에러 발생\nGemini 호출 필요");
+    } catch (e) {
+      setResult("🚨 네트워크 에러");
+    }
     setLoading(false);
   };
 
-  const copy = (txt: string) => {
+  const copy = (txt) => {
     navigator.clipboard.writeText(txt);
     alert("복사 완료! ✅");
   };
 
   return (
-    <main className="flex flex-col min-h-screen bg-black text-white p-6 overflow-hidden">
-      {/* 1. 가져오기 버튼 (화면 절반 크기) */}
+    <main style={{ backgroundColor: 'black', minHeight: '100vh', display: 'flex', flexDirection: 'column', padding: '20px' }}>
+      
       {!loading && !result && (
-        <label className="flex-1 flex flex-col items-center justify-center bg-blue-600 rounded-[60px] border-[20px] border-blue-400 active:scale-90 transition-all">
-          <span className="text-[30vw]">📸</span>
-          <span className="text-[12vw] font-black leading-none mt-4 text-center">가져오기</span>
-          <input type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+        <label style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: '#2563eb', borderRadius: '50px', border: '15px solid #60a5fa', cursor: 'pointer' }}>
+          <span style={{ fontSize: '150px' }}>📸</span>
+          <span style={{ fontSize: '60px', fontWeight: '900', color: 'white', textAlign: 'center' }}>영수증<br/>가져오기</span>
+          <input type="file" accept="image/*" className="hidden" onChange={handleUpload} style={{ display: 'none' }} />
         </label>
       )}
 
-      {/* 2. 로딩창 */}
       {loading && (
-        <div className="flex-1 flex flex-col items-center justify-center bg-gray-900 rounded-[60px] border-[20px] border-gray-700">
-          <div className="w-[30vw] h-[30vw] border-[5vw] border-blue-500 border-t-transparent rounded-full animate-spin mb-10"></div>
-          <p className="text-[10vw] font-black text-blue-400">분석중{dots}</p>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: '#111827', borderRadius: '50px', border: '15px solid #374151' }}>
+          <div style={{ width: '100px', height: '100px', border: '15px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+          <p style={{ fontSize: '60px', fontWeight: '900', color: '#60a5fa', marginTop: '40px' }}>분석중{dots}</p>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       )}
 
-      {/* 3. 분석 결과 & 복사 */}
       {result && (
-        <div className="flex flex-col h-full gap-8 animate-in zoom-in duration-300">
-          <div className="bg-gray-800 p-8 rounded-[40px] border-4 border-blue-900">
-            <p className="text-[9vw] font-mono leading-tight font-black text-yellow-400 whitespace-pre-wrap">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div style={{ backgroundColor: '#1f2937', padding: '30px', borderRadius: '40px', border: '4px solid #1e3a8a' }}>
+            <p style={{ fontSize: '45px', fontWeight: '900', color: '#facc15', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0 }}>
               {result}
             </p>
           </div>
 
           <button 
             onClick={() => copy(result)} 
-            className="w-full py-16 bg-green-600 rounded-[60px] text-[15vw] font-black border-[15px] border-green-400 active:scale-95 transition-all"
+            style={{ width: '100%', padding: '60px 0', backgroundColor: '#16a34a', borderRadius: '50px', fontSize: '70px', fontWeight: '900', color: 'white', border: '15px solid #4ade80' }}
           >
             복사하기
           </button>
 
-          <button onClick={() => setResult('')} className="text-4xl text-gray-500 font-bold py-6">
+          <button onClick={() => setResult('')} style={{ color: '#6b7280', fontSize: '30px', fontWeight: 'bold', padding: '20px', border: 'none', background: 'none' }}>
             뒤로가기
           </button>
         </div>
@@ -73,5 +76,3 @@ export default function Home() {
     </main>
   );
 }
-
-
