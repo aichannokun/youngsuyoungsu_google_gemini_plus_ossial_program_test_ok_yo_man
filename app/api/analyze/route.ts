@@ -1,42 +1,59 @@
 // 위에 3줄
-// 여러 장의 이미지를 동시에 수신하여 Gemini 1.5 Flash 모델로 통합 분석을 진행합니다.
-// 중복된 내용은 합치고, 금액/시간/상호명 순서로 정렬된 텍스트 레이아웃을 생성합니다.
-// 들여쓰기와 공백 규정을 엄격히 준수하여 복사 후 바로 사용하기 좋은 가독성을 제공합니다.
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { NextResponse } from "next/server";
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+// 이 코드는 모델이 만료되어도 계정 내 사용 가능한 최신 모델을 자동으로 찾아 실행합니다.
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
-    const images = formData.getAll('images') as File[];
+    const file = formData.get('image') as File;
+    const base64Data = Buffer.from(await file.arrayBuffer()).toString('base64');
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+
+    // [전략 1] Vercel 환경 변수에 모델명을 적어두면 코드 수정 없이 대시보드에서 변경 가능
+    // [전략 2] 환경 변수가 없으면 일단 2.5를 시도하고, 실패 시 2.0 등 하위 호환을 시도함
+    const modelNames = [process.env.GEMINI_MODEL || 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
     
-    const imageParts = await Promise.all(images.map(async (img) => ({
-      inlineData: { data: Buffer.from(await img.arrayBuffer()).toString("base64"), mimeType: img.type }
-    })));
-
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    let lastError = null;
+    for (const name of modelNames) {
+      try {
+        const model = genAI.getGenerativeModel({ model: name });
     const prompt = `
-      영수증 또는 스크린샷 사진을 분석해서 아래 형식으로만 출력해.
-      여러 장일 경우 중복 내용은 하나로 합쳐.
+    이미지를 분석하여 다음 두 가지 경우 중 하나로 출력해줘:
 
-      [일반 영수증]
-      금액 (단위 포함)
-      시간 (YYYY-MM-DD HH:mm)
-      - 상호명 (전화번호)
-      주소: 주소지
-      기타 정보: 결제수단 등
+    ### [경우 1: 온라인 쇼핑몰 주문 내역/결제 완료 스크린샷인 경우]
+    - 특징: 깔끔한 디지털 이미지이며, 할인/쿠폰/옵션 정보가 명확함.
+    - 아래 규격에 맞춰 상세하게 분석:
+    ------------------------------------------------------------
+    소비 금액 / 배송(온라인/스크린샷인 경우 '배송' 표기)
 
-      [배달/쇼핑 스샷]
-      총 정산금액 / 배송비 (0원이면 '무료')
-      할인 내역 (한 줄씩 상세히)
-      구매 날짜 + 시간
-      - 상호명 (전화번호)
-      상품제목명
-        상품옵션내용 (한 칸 들여쓰기)
-      
-      기타 정보: 주문번호 등
+    판매액 : [원래 판매 금액]
+    할인액 : -[총 할인 금액]
+        (즉시할인: -금액)
+        ([쿠폰명/할인명] : -금액)
+
+    포인트/적립금 사용 : -[금액]([포인트이름])
+
+    최종금액 : ([결제수단]) [실제 결제 금액]
+
+    -판매처 : [쇼핑몰/사이트명]
+    [[상품 제목]]
+        ([옵션 정보])
+    ------------------------------------------------------------
+
+    ### [경우 2: 실제 종이 영수증을 촬영한 사진인 경우]
+    - 특징: 종이 질감이 보이거나, 기울어짐/흔들림이 있으며, 단순 합계 정보 위주임.
+    - 아래 규격에 맞춰 핵심 정보만 심플하게 분석 (세금, 품목별 단가 등은 생략):
+    ------------------------------------------------------------
+    종이 영수증 분석 결과
+
+    합계 금액 : [영수증에 적힌 총합계]
+
+    최종 결제 금액 : ([결제수단/카드사]) [실제 지불 금액]
+
+    -판매처 : [상호명]
+    [[대표 품목]] (여러 개인 경우 대표 품목 하나 혹은 '...외 X건')
+    ------------------------------------------------------------
     `;
 
     const result = await model.generateContent([prompt, ...imageParts]);
