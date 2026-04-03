@@ -14,7 +14,10 @@ export async function POST(req: Request) {
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
     const modelNames = [
-      process.env.GEMINI_MODEL || 'Gemini-2.5-Flash',
+      process.env.GEMINI_MODEL || 'Gemini-3.1-Flash-Lite',
+      'Gemini-3.0-Flash',
+      'Gemini-2.5-Flash',
+      'Gemini-2.5-Flash-Lite',
       'gemini-2.0-flash',
       'gemini-1.5-flash',
     ];
@@ -47,17 +50,18 @@ export async function POST(req: Request) {
   3. 품목3 | 수량 x 단가 | 총 금액(다음줄)
 (내용만큼이어짐)...(다음줄) 영수증에 있는 모든 품목을 빠짐없이 나열할 것. 생략하지 말 것.`;
 
-    const results: string[] = [];
+    const MAX_ATTEMPTS = 10;
 
     for (const file of files) {
       const base64Data = Buffer.from(await file.arrayBuffer()).toString('base64');
       let lastError = null;
       let success = false;
-
-      for (let i = 0; i < modelNames.length; i++) {
-        if (i > 0) await sleep(3000); // 재시도 전 3초 대기
+    
+      for (let i = 0; i < MAX_ATTEMPTS; i++) {
+        if (i > 0) await sleep(5000);
+        const modelName = modelNames[i % modelNames.length];
         try {
-          const model = genAI.getGenerativeModel({ model: modelNames[i] });
+          const model = genAI.getGenerativeModel({ model: modelName });
           const result = await model.generateContent([
             prompt,
             { inlineData: { data: base64Data, mimeType: file.type || 'image/jpeg' } },
@@ -70,7 +74,7 @@ export async function POST(req: Request) {
           continue;
         }
       }
-
+    
       if (!success) throw lastError;
     }
 
