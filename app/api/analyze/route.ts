@@ -1,32 +1,26 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextResponse } from 'next/server';
 
+// ... 기존 import 동일
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
     const file = formData.get('image') as File;
-    if (!file) return NextResponse.json({ error: '이미지가 없습니다.' }, { status: 400 });
-
-    const mimeType = file.type || 'image/jpeg';
     const base64Data = Buffer.from(await file.arrayBuffer()).toString('base64');
 
-  // ... 생략 (기존 import)
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-    
-    // 'latest' 별칭을 사용하여 항상 최신 플래시 모델을 호출합니다.
-    const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
+    // 현재 가장 안정적인 모델로 설정
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-    const prompt = "영수증 날짜, 상호명, 품목, 합계 금액을 파악해서 'YYYY-MM-DD | 상호명 | 핵심품목 | 금액원' 형태로 한 줄만 반환해줘.";
-  // ... 생략
-    
     const result = await model.generateContent([
-      prompt,
-      { inlineData: { data: base64Data, mimeType } }
+      "영수증 정보를 'YYYY-MM-DD | 상호명 | 핵심품목 | 금액원' 형태로 한 줄만 반환해줘.",
+      { inlineData: { data: base64Data, mimeType: file.type || 'image/jpeg' } }
     ]);
 
     return NextResponse.json({ text: result.response.text().trim() });
   } catch (error: any) {
-    console.error("Gemini API 에러 발생:", error.message);
-    return NextResponse.json({ error: `분석 실패: ${error.message}` }, { status: 500 });
+    // 구글 API의 에러 상태 코드를 추출 (없으면 500)
+    const status = error.status || 500;
+    return NextResponse.json({ error: error.message }, { status });
   }
 }
