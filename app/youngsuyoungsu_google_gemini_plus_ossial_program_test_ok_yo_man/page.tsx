@@ -1,41 +1,48 @@
 'use client';
 import { useState } from 'react';
 
-export default function ReceiptScanner() {
-  const [image, setImage] = useState<File | null>(null);
+export default function Home() {
   const [result, setResult] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleUpload = async () => {
-    if (!image) return alert('사진을 선택해주세요!');
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
     setLoading(true);
     const formData = new FormData();
-    formData.append('image', image);
+    formData.append('image', file);
 
-    try {
-      const res = await fetch('/api/analyze', { method: 'POST', body: formData });
-      const data = await res.json();
-      // 백엔드에서 보낸 'text' 필드를 정확히 읽어옵니다.
-      setResult(data.text || data.error || '결과를 읽을 수 없습니다.');
-    } catch (err) {
-      setResult('서버 연결 실패');
-    } finally {
-      setLoading(false);
-    }
+    const res = await fetch('/api/analyze', { method: 'POST', body: formData });
+    const data = await res.json();
+    setResult(data.text || data.error);
+    setLoading(false);
   };
 
   return (
-    <div style={{ padding: '20px', maxWidth: '500px', margin: '0 auto', textAlign: 'center' }}>
-      <h2 style={{ marginBottom: '20px' }}>🧾 영수증 스캐너</h2>
-      <input type="file" accept="image/*" onChange={(e) => setImage(e.target.files?.[0] || null)} style={{ marginBottom: '20px' }} />
-      <button onClick={handleUpload} disabled={loading} style={{ width: '100%', padding: '15px', background: '#0070f3', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold' }}>
-        {loading ? '분석 중...' : '영수증 분석하기'}
-      </button>
+    <main className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-900 text-white">
+      <h1 className="text-2xl font-bold mb-8">⚡ 영수증 스캐너</h1>
+      
+      {/* 사진 찍기 버튼 (모바일 최적화) */}
+      <label className="w-full max-w-xs h-64 flex flex-col items-center justify-center border-4 border-dashed border-blue-500 rounded-2xl cursor-pointer hover:bg-blue-900/30 transition-all">
+        <span className="text-5xl mb-4">📷</span>
+        <span className="text-lg font-semibold">영수증 촬영 / 업로드</span>
+        <input 
+          type="file" 
+          accept="image/*" 
+          capture="environment" // 폰에서 바로 카메라를 띄우는 마법의 속성
+          className="hidden" 
+          onChange={handleUpload}
+        />
+      </label>
+
+      {loading && <p className="mt-8 animate-pulse text-blue-400 font-bold text-xl">탕탕집 찾는 중... 🍲</p>}
+
       {result && (
-        <div style={{ marginTop: '20px', padding: '15px', background: '#f0f0f0', borderRadius: '8px', wordBreak: 'break-all' }}>
-          <strong>[분석 결과]</strong><br />{result}
+        <div className="mt-8 p-6 bg-gray-800 rounded-xl border border-blue-500 w-full max-w-md shadow-2xl">
+          <p className="text-center font-mono text-lg break-words">{result}</p>
         </div>
       )}
-    </div>
+    </main>
   );
 }
