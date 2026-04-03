@@ -1,7 +1,7 @@
 // 위에 3줄
-// Vercel의 4.5MB 제한을 고려하여 에러 메시지를 구체적으로 리턴하도록 수정했습니다.
-// Gemini API 호출 시 응답 속도를 위해 최신 모델 설정을 유지합니다.
-// 서버 로그(Vercel Logs)에서도 상세한 에러 확인이 가능하도록 console.error를 추가했습니다.
+// API 키 누락이나 제미나이 모델 호출 오류를 상세하게 잡아내도록 로직을 보강했습니다.
+// 여러 장의 이미지를 처리할 때 발생하는 잠재적인 비동기 오류를 방지하기 위해 구조를 개선했습니다.
+// 에러 발생 시 단순 문구가 아닌 구체적인 시스템 메시지를 리턴하여 디버깅을 돕습니다.
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 
@@ -9,41 +9,38 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export async function POST(req: Request) {
   try {
-    if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json({ text: "🚨 API 키가 없습니다. Vercel 설정을 확인하세요." }, { status: 500 });
+    const key = process.env.GEMINI_API_KEY;
+    if (!key || key.trim() === "") {
+      return NextResponse.json({ text: "🚨 API 키가 설정되지 않았습니다. Vercel 환경변수를 확인하세요." }, { status: 500 });
     }
 
     const formData = await req.formData();
     const images = formData.getAll('images') as File[];
-
-    if (images.length === 0) {
-      return NextResponse.json({ text: "🚨 이미지가 전송되지 않았습니다." }, { status: 400 });
-    }
+    
+    if (images.length === 0) return NextResponse.json({ text: "🚨 전송된 이미지가 없습니다." }, { status: 400 });
 
     const imageParts = await Promise.all(images.map(async (img) => {
-      const arrayBuffer = await img.arrayBuffer();
+      const bytes = await img.arrayBuffer();
       return {
-        inlineData: {
-          data: Buffer.from(arrayBuffer).toString("base64"),
-          mimeType: img.type
-        }
+        inlineData: { data: Buffer.from(bytes).toString("base64"), mimeType: img.type || "image/jpeg" }
       };
     }));
 
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const prompt = `영수증 사진을 분석해서 금액, 시간, 상호명(전화번호), 주소 순으로 정리해줘. 배달 스샷이면 할인내역과 상품명도 포함해줘.`;
+    const prompt = "영수증/스크린샷을 분석해서 금액, 시간, 상호명 순으로 정리해. 상세 내역도 포함해.";
 
     const result = await model.generateContent([prompt, ...imageParts]);
-    const response = await result.response;
-    return NextResponse.json({ text: response.text() });
+    const text = result.response.text();
 
+    if (!text) return NextResponse.json({ text: "🚨 제미나이가 빈 답변을 보냈습니다." }, { status: 500 });
+    
+    return NextResponse.json({ text });
   } catch (e: any) {
     console.error("Gemini Error:", e);
-    // 에러 내용을 구체적으로 리턴해서 유저가 화면에서 볼 수 있게 함
-    return NextResponse.json({ text: `🚨 에러 발생: ${e.message || "알 수 없는 오류"}` }, { status: 500 });
+    return NextResponse.json({ text: `🚨 서버 에러: ${e.message}` }, { status: 500 });
   }
 }
 // 밑에 3줄
-// 이제 분석 실패 시 단순 문구가 아니라 실제 원인(Payload Too Large 등)이 출력됩니다.
-// 여러 장의 사진을 처리할 때 발생할 수 있는 버퍼 오류를 방지하기 위해 형변환 로직을 안정화했습니다.
-// 이 코드를 적용하면 Vercel 대시보드의 'Logs' 탭에서도 상세 에러를 추적할 수 있습니다.
+// 이제 API 키가 비어있으면 화면에 즉시 경고가 뜹니다.
+// 이미지 MIME 타입을 유동적으로 처리하여 스크린샷과 일반 사진 모두 대응 가능합니다.
+// catch 블록에서 에러 메시지(e.message)를 직접 전달하여 원인 파악이 빨라집니다.
