@@ -65,8 +65,7 @@ export async function POST(req: Request) {
           break; // 성공했으면 다음 파일로
         } catch (err: any) {
           lastError = err;
-          if (err.status === 404) continue; // 404면 다음 모델 시도
-          throw err;
+          continue;
         }
       }
 
