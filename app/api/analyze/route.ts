@@ -21,7 +21,8 @@ export async function POST(req: Request) {
       'gemini-2.0-flash',
       'gemini-1.5-flash',
     ];
-
+    const MAX_ATTEMPTS = 10;
+    
     const prompt = `이미지를 분석하여 아래 두 형식 중 하나로만 출력해줘.
 구분선, 설명 문구, 반복 출력 없이 결과만 딱 한 번 출력할 것. 
 금액에는 항상 끝에 "원"을 함께 기록할것.
@@ -50,13 +51,13 @@ export async function POST(req: Request) {
   3. 품목3 | 수량 x 단가 | 총 금액(다음줄)
 (내용만큼이어짐)...(다음줄) 영수증에 있는 모든 품목을 빠짐없이 나열할 것. 생략하지 말 것.`;
 
-    const MAX_ATTEMPTS = 10;
+    const results: string[] = [];
 
     for (const file of files) {
       const base64Data = Buffer.from(await file.arrayBuffer()).toString('base64');
       let lastError = null;
       let success = false;
-    
+
       for (let i = 0; i < MAX_ATTEMPTS; i++) {
         if (i > 0) await sleep(5000);
         const modelName = modelNames[i % modelNames.length];
@@ -74,7 +75,7 @@ export async function POST(req: Request) {
           continue;
         }
       }
-    
+
       if (!success) throw lastError;
     }
 
