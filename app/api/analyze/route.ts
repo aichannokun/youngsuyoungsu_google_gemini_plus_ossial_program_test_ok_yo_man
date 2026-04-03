@@ -14,7 +14,9 @@ export async function POST(req: Request) {
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
     const modelNames = [
-      process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+      process.env.GEMINI_MODEL || 'Gemini-2.5-Flash-Lite',
+      'Gemini-2.5-Flash'
+      'gemini-2.0-flash-Lite',
       'gemini-2.0-flash',
       'gemini-1.5-flash',
     ];
@@ -39,6 +41,7 @@ export async function POST(req: Request) {
 [종이 영수증을 촬영한 사진인 경우]
 합계 금액 : 영수증에 적힌 총합계
 최종 결제 금액 : (결제수단/카드사) 실제 지불 금액
+(포인트 사용액이 있으면 넣을것. 포인트 : -금액)
 (이 줄 공백)
 -판매 : 상호명
   1. 품목1 | 수량 x 단가 | 총 금액(다음줄)
