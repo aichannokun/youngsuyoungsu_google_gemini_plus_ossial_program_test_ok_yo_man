@@ -1,0 +1,15 @@
+{
+  "name": "receipt-scanner",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-image-crop": "latest",
+    "@google/generativeai": "latest"
+  }
+}
