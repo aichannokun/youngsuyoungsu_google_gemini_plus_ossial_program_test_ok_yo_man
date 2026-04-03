@@ -39,12 +39,21 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [statusIdx, setStatusIdx] = useState(0);
   const [showTooltip, setShowTooltip] = useState(false);
+  const modelNames = [
+  'gemini-3.1-Flash-Lite',
+  'gemini-3.0-Flash',
+  'gemini-2.5-Flash',
+  'gemini-2.5-Flash-Lite',
+  'gemini-2.0-Flash',
+  'gemini-1.5-Flash',
+];
 
+  
   useEffect(() => {
     if (!loading) { setStatusIdx(0); return; }
     const interval = setInterval(() => {
-      setStatusIdx(prev => Math.min(prev + 1, statusMessages.length - 1));
-    }, 3500);
+      setStatusIdx(prev => prev + 1);
+    }, 5000);
     return () => clearInterval(interval);
   }, [loading]);
 
@@ -75,6 +84,9 @@ export default function Home() {
     setShowTooltip(true);
     setTimeout(() => { setShowTooltip(false); setResult(''); setFiles([]); }, 2000);
   };
+  
+  const attemptNum = statusIdx + 1;
+  const modelLabel = modelNames[statusIdx % modelNames.length];
 
   return (
     <main style={{ backgroundColor: '#000', height: '100dvh', display: 'flex', flexDirection: 'column', padding: '20px', gap: '15px', color: '#fff', overflow: 'hidden', position: 'relative' }}>
@@ -96,7 +108,9 @@ export default function Home() {
       {loading && (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '20px' }}>
           <div style={{ width: '40px', height: '40px', border: '3px solid #222', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-          <span style={{ color: '#888', fontSize: '14px' }}>{statusMessages[statusIdx]}</span>
+          <span style={{ color: '#888', fontSize: '14px' }}>
+            {attemptNum}번째 시도 중 · {modelLabel}
+          </span>
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       )}
