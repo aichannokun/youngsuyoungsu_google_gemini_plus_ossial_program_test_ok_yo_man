@@ -1,7 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
 
-// 이미지 압축 함수 (품질 0.8 / 최대 1500px)
 async function compressImage(file: File): Promise<File> {
   return new Promise((resolve) => {
     const img = new Image();
@@ -20,25 +19,12 @@ async function compressImage(file: File): Promise<File> {
       canvas.toBlob(blob => {
         URL.revokeObjectURL(url);
         resolve(blob ? new File([blob], file.name, { type: 'image/jpeg' }) : file);
-      }, 'image/jpeg', 0.75);
+      }, 'image/jpeg', 0.8);
     };
     img.src = url;
   });
 }
 
-const statusMessages = [
-  '분석 중...',
-  '잠시 대기 중...',
-  '재시도 중...',
-  '조금만 더 기다려주세요...',
-];
-
-export default function Home() {
-  const [files, setFiles] = useState<File[]>([]);
-  const [result, setResult] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [statusIdx, setStatusIdx] = useState(0);
-  const [showTooltip, setShowTooltip] = useState(false);
   const modelNames = [
   'gemini-3.1-Flash-Lite',
   'gemini-3.0-Flash',
@@ -48,7 +34,13 @@ export default function Home() {
   'gemini-1.5-Flash',
 ];
 
-  
+ export default function Home() {
+  const [files, setFiles] = useState<File[]>([]);
+  const [result, setResult] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [statusIdx, setStatusIdx] = useState(0);
+  const [showTooltip, setShowTooltip] = useState(false);
+
   useEffect(() => {
     if (!loading) { setStatusIdx(0); return; }
     const interval = setInterval(() => {
@@ -84,7 +76,7 @@ export default function Home() {
     setShowTooltip(true);
     setTimeout(() => { setShowTooltip(false); setResult(''); setFiles([]); }, 2000);
   };
-  
+
   const attemptNum = statusIdx + 1;
   const modelLabel = modelNames[statusIdx % modelNames.length];
 
@@ -108,9 +100,7 @@ export default function Home() {
       {loading && (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '20px' }}>
           <div style={{ width: '40px', height: '40px', border: '3px solid #222', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-          <span style={{ color: '#888', fontSize: '14px' }}>
-            {attemptNum}번째 시도 중 · {modelLabel}
-          </span>
+          <span style={{ color: '#888', fontSize: '14px' }}>{attemptNum}번째 시도 중 · {modelLabel}</span>
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       )}
