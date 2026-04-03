@@ -20,3 +20,4 @@
     "@types/react-dom": "latest"
   }
 }
+"@netlify/plugin-nextjs": "latest"
