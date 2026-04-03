@@ -11,11 +11,13 @@ export async function POST(req: Request) {
     const mimeType = file.type || 'image/jpeg';
     const base64Data = Buffer.from(await file.arrayBuffer()).toString('base64');
 
+    // ... 위에 3줄
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-    // 모델 이름을 아래와 같이 최신형으로 변경합니다.
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    // 'latest'를 붙여서 가장 안정적인 1.5 플래시 모델로 연결합니다.
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
 
     const prompt = "영수증 날짜, 상호명, 품목, 합계 금액을 파악해서 'YYYY-MM-DD | 상호명 | 핵심품목 | 금액원' 형태로 한 줄만 반환해줘.";
+    // ... 밑에 3줄
     
     const result = await model.generateContent([
       prompt,
