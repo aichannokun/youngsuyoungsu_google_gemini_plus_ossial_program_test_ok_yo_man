@@ -1,20 +1,56 @@
-// 위에 3줄
-// multiple 속성을 확실히 부여하여 앨범에서 여러 장을 '체크'한 뒤 한꺼번에 가져오도록 설정했습니다.
-// 기존에 선택된 파일들이 있다면 그 뒤에 새로 선택한 파일들이 합쳐지도록 로직을 보강했습니다.
-// 아이폰 8P 환경에서 사진 선택 시 '추가' 버튼을 눌러야 한꺼번에 넘어가는 점을 고려했습니다.
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
+// 이미지 압축 함수 (품질 0.8 / 최대 1500px)
+async function compressImage(file: File): Promise<File> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const maxSize = 1500;
+      let { width, height } = img;
+      if (width > maxSize || height > maxSize) {
+        if (width > height) { height = (height / width) * maxSize; width = maxSize; }
+        else { width = (width / height) * maxSize; height = maxSize; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext('2d')!.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(blob => {
+        URL.revokeObjectURL(url);
+        resolve(blob ? new File([blob], file.name, { type: 'image/jpeg' }) : file);
+      }, 'image/jpeg', 0.8);
+    };
+    img.src = url;
+  });
+}
+
+const statusMessages = [
+  '분석 중...',
+  '잠시 대기 중...',
+  '재시도 중...',
+  '조금만 더 기다려주세요...',
+];
 
 export default function Home() {
   const [files, setFiles] = useState<File[]>([]);
   const [result, setResult] = useState('');
   const [loading, setLoading] = useState(false);
+  const [statusIdx, setStatusIdx] = useState(0);
   const [showTooltip, setShowTooltip] = useState(false);
+
+  useEffect(() => {
+    if (!loading) { setStatusIdx(0); return; }
+    const interval = setInterval(() => {
+      setStatusIdx(prev => Math.min(prev + 1, statusMessages.length - 1));
+    }, 3500);
+    return () => clearInterval(interval);
+  }, [loading]);
 
   const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files;
     if (selected && selected.length > 0) {
-      // 뭉텅이로 들어온 파일들을 기존 목록에 합체!
       setFiles(prev => [...prev, ...Array.from(selected)]);
     }
   };
@@ -22,13 +58,15 @@ export default function Home() {
   const analyze = async () => {
     if (files.length === 0) return;
     setLoading(true);
-    const formData = new FormData();
-    files.forEach(f => formData.append('images', f));
+    setStatusIdx(0);
     try {
+      const compressed = await Promise.all(files.map(compressImage));
+      const formData = new FormData();
+      compressed.forEach(f => formData.append('images', f));
       const res = await fetch('/api/analyze', { method: 'POST', body: formData });
       const data = await res.json();
-      setResult(res.ok ? data.text : "🚨 분석 실패");
-    } catch { setResult("🚨 오류 발생"); }
+      setResult(res.ok ? data.text : '🚨 분석 실패');
+    } catch { setResult('🚨 오류 발생'); }
     setLoading(false);
   };
 
@@ -47,13 +85,7 @@ export default function Home() {
           <label style={{ flex: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '1px solid #333', borderRadius: '30px', cursor: 'pointer', backgroundColor: '#0a0a0a' }}>
             <svg width="50" height="50" fill="none" stroke="#fff" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M12 4.5v15m7.5-7.5h-15" strokeLinecap="round" strokeLinejoin="round"/></svg>
             <span style={{ marginTop: '15px', fontSize: '16px', color: '#666' }}>{files.length > 0 ? `${files.length}장 대기 중...` : '사진 뭉텅이로 추가'}</span>
-            <input 
-              type="file" 
-              multiple           /* 👈 이게 범인입니다. 확실히 박아넣었습니다! */
-              accept="image/*" 
-              onChange={handleFiles} 
-              style={{ display: 'none' }} 
-            />
+            <input type="file" multiple accept="image/*" onChange={handleFiles} style={{ display: 'none' }} />
           </label>
           {files.length > 0 && (
             <button onClick={analyze} style={{ height: '80px', backgroundColor: '#fff', color: '#000', borderRadius: '25px', fontWeight: '900', fontSize: '22px', border: 'none' }}>{files.length}장 분석 시작</button>
@@ -62,8 +94,9 @@ export default function Home() {
       )}
 
       {loading && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '20px' }}>
           <div style={{ width: '40px', height: '40px', border: '3px solid #222', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+          <span style={{ color: '#888', fontSize: '14px' }}>{statusMessages[statusIdx]}</span>
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       )}
@@ -76,12 +109,8 @@ export default function Home() {
       )}
 
       {!loading && (files.length > 0 || result) && (
-        <button onClick={() => {setFiles([]); setResult('');}} style={{ color: '#444', fontSize: '12px', background: 'none', border: 'none', paddingBottom: '10px' }}>전체 초기화</button>
+        <button onClick={() => { setFiles([]); setResult(''); }} style={{ color: '#444', fontSize: '12px', background: 'none', border: 'none', paddingBottom: '10px' }}>전체 초기화</button>
       )}
     </main>
   );
 }
-// 밑에 3줄
-// input 태그에 multiple 속성이 명시되어 있어, 이제 앨범에서 여러 장을 콕콕 찍어 한 번에 올릴 수 있습니다.
-// 스택(Stack) 방식으로 파일을 쌓아주기 때문에, 한 번에 다 못 골랐더라도 다시 눌러서 추가하면 됩니다.
-// iPhone 환경에서 선택창이 바로 닫히지 않도록 표준 필터(accept="image/*")를 적용했습니다.
