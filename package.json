@@ -10,7 +10,7 @@
     "react": "latest",
     "react-dom": "latest",
     "react-image-crop": "latest",
-    "@google/generativeai": "latest"
+    "@google/generative-ai": "latest"
   },
   "devDependencies": {
     "typescript": "latest",
