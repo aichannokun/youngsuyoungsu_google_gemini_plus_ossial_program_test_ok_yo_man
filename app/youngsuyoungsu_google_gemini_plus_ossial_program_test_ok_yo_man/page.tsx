@@ -20,7 +20,7 @@ async function compressImage(file: File): Promise<File> {
       canvas.toBlob(blob => {
         URL.revokeObjectURL(url);
         resolve(blob ? new File([blob], file.name, { type: 'image/jpeg' }) : file);
-      }, 'image/jpeg', 0.8);
+      }, 'image/jpeg', 0.75);
     };
     img.src = url;
   });
