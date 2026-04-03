@@ -17,7 +17,7 @@
     "typescript": "latest",
     "@types/node": "latest",
     "@types/react": "latest",
-    "@types/react-dom": "latest"
+    "@types/react-dom": "latest",
+    "@netlify/plugin-nextjs": "^5.3.3"
   }
 }
-"@netlify/plugin-nextjs": "latest"
