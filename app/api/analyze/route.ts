@@ -1,19 +1,32 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export async function POST(req: Request) {
   try {
+    // 1. API 키가 없으면 바로 알려줌
+    if (!process.env.GEMINI_API_KEY) {
+      return NextResponse.json({ text: "🚨 API 키가 설정되지 않았습니다. Vercel 환경변수를 확인하세요." }, { status: 500 });
+    }
+
     const formData = await req.formData();
     const images = formData.getAll('images') as File[];
 
-    const imageParts = await Promise.all(images.map(async (img) => ({
-      inlineData: {
-        data: Buffer.from(await img.arrayBuffer()).toString("base64"),
-        mimeType: img.type
-      }
-    })));
+    if (images.length === 0) {
+      return NextResponse.json({ text: "🚨 이미지가 전송되지 않았습니다." }, { status: 400 });
+    }
+
+    // 2. 이미지 변환 과정 안정화
+    const imageParts = await Promise.all(images.map(async (img) => {
+      const arrayBuffer = await img.arrayBuffer();
+      return {
+        inlineData: {
+          data: Buffer.from(arrayBuffer).toString("base64"),
+          mimeType: img.type
+        }
+      };
+    }));
 
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
@@ -39,8 +52,12 @@ export async function POST(req: Request) {
     `;
 
     const result = await model.generateContent([prompt, ...imageParts]);
-    return NextResponse.json({ text: result.response.text() });
-  } catch (e) {
-    return NextResponse.json({ error: "분석 실패" }, { status: 500 });
+    const response = await result.response;
+    return NextResponse.json({ text: response.text() });
+
+  } catch (e: any) {
+    console.error("Gemini Error:", e);
+    // 3. 에러 내용을 구체적으로 리턴해서 화면에서 볼 수 있게 함
+    return NextResponse.json({ text: `🚨 에러: ${e.message}` }, { status: 500 });
   }
 }
