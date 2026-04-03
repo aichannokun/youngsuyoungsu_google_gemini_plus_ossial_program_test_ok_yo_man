@@ -14,12 +14,7 @@ export async function POST(req: Request) {
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
     const modelNames = [
-      process.env.GEMINI_MODEL || 'Gemini-3.1-Flash-Lite',
-      'Gemini-3.0-Flash',
-      'Gemini-2.5-Flash',
-      'Gemini-2.5-Flash-Lite',
-      'gemini-2.0-flash',
-      'gemini-1.5-flash',
+      process.env.GEMINI_MODEL || 'gemini-3.0-flash',
     ];
     const MAX_ATTEMPTS = 10;
     
@@ -60,7 +55,7 @@ export async function POST(req: Request) {
 
       for (let i = 0; i < MAX_ATTEMPTS; i++) {
         if (i > 0) await sleep(5000);
-        const modelName = modelNames[i % modelNames.length];
+        const modelName = modelNames[0]; // always gemini-3.0-flash
         try {
           const model = genAI.getGenerativeModel({ model: modelName });
           const result = await model.generateContent([
@@ -85,3 +80,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: error.status || 500 });
   }
 }
+
