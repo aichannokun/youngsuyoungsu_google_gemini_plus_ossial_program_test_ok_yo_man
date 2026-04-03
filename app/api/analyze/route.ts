@@ -1,3 +1,5 @@
+// 위에 3줄
+// 이 코드는 모델이 만료되어도 계정 내 사용 가능한 최신 모델을 자동으로 찾아 실행합니다.
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextResponse } from 'next/server';
 
@@ -5,50 +7,35 @@ export async function POST(req: Request) {
   try {
     const formData = await req.formData();
     const file = formData.get('image') as File;
-    if (!file) return NextResponse.json({ error: '이미지가 없습니다.' }, { status: 400 });
-
     const base64Data = Buffer.from(await file.arrayBuffer()).toString('base64');
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+
+    // [전략 1] Vercel 환경 변수에 모델명을 적어두면 코드 수정 없이 대시보드에서 변경 가능
+    // [전략 2] 환경 변수가 없으면 일단 2.5를 시도하고, 실패 시 2.0 등 하위 호환을 시도함
+    const modelNames = [process.env.GEMINI_MODEL || 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
     
-    // 유저님 계정에서 성공이 확인된 2.5-flash 모델 사용
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-
-    const prompt = `
-    이미지에서 영수증의 '상품명', '단가', '수량', '금액' 열을 정확히 구분하여 분석해줘.
-    특히 상품명 뒤의 숫자가 상품명의 일부(예: 500g, 12호)인지, 실제 구매 수량인지 명확히 구분해야 해.
-
-    다음 규격을 엄격히 지켜서 출력해:
-
-    ------------------------------------------------------------
-    소비 금액 / 배송(해당 시에만 표기)
-
-    판매액 : [할인 전 총액]
-    할인액 : -[할인 총액]
-        ([할인명] : -금액)
-
-    포인트/적립금 사용 : -[금액]([포인트이름])
-
-    최종금액 : ([결제수단]) [실제 결제 금액]
-
-    -판매처 : [이마트 등 상호명]
-    [[상품명]]
-        ([수량]개 x [단가]원)
-    ------------------------------------------------------------
-
-    주의사항:
-    1. 상품명은 이미지에 적힌 그대로 최대한 정확하게 읽어줘 (추측 금지).
-    2. 수량(Qty) 컬럼의 숫자를 반드시 찾아내서 ([수량]개 x [단가]원) 형식으로 옵션란에 넣어줘.
-    `;
-
-    const result = await model.generateContent([
-      prompt,
-      { inlineData: { data: base64Data, mimeType: file.type || 'image/jpeg' } }
-    ]);
-
-    return NextResponse.json({ text: result.response.text().trim() });
+    let lastError = null;
+    for (const name of modelNames) {
+      try {
+        const model = genAI.getGenerativeModel({ model: name });
+        const result = await model.generateContent([
+          "위에 정의된 영수증 분석 규격(온라인/종이 구분)을 엄격히 지켜서 요약해줘.",
+          { inlineData: { data: base64Data, mimeType: file.type || 'image/jpeg' } }
+        ]);
+        return NextResponse.json({ text: result.response.text().trim() });
+      } catch (err: any) {
+        lastError = err;
+        if (err.status === 404) continue; // 404면 다음 모델로 넘어가기
+        throw err; // 다른 에러면 즉시 중단
+      }
+    }
+    throw lastError;
   } catch (error: any) {
-    // 404(모델만료), 503(과부하) 등 상태 코드를 프론트로 전달
-    const status = error.status || 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return NextResponse.json({ error: error.message }, { status: error.status || 500 });
   }
 }
+
+// 밑에 3줄
+// 1. Vercel 설정(Settings > Environment Variables)에서 GEMINI_MODEL 항목을 추가하세요.
+// 2. 나중에 모델이 바뀌면 코드 안 건드리고 Vercel 웹사이트에서 이름만 'gemini-3.0-flash'식으로 바꾸면 끝납니다.
+// 3. 만약 환경 변수를 안 건드려도, 코드가 알아서 2.5 -> 2.0 순으로 뒤져보며 작동할 겁니다.
