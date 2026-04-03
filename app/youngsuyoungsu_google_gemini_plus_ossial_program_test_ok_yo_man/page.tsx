@@ -118,4 +118,3 @@ async function compressImage(file: File): Promise<File> {
     </main>
   );
 }
-
