@@ -1,80 +1,41 @@
 'use client';
-import { useState, useRef, useEffect } from 'react';
-import ReactCrop, { type Crop } from 'react-image-crop';
-import 'react-image-crop/dist/ReactCrop.css';
+import { useState } from 'react';
 
 export default function ReceiptScanner() {
-  const [imgSrc, setImgSrc] = useState('');
-  const [crop, setCrop] = useState<Crop>();
+  const [image, setImage] = useState<File | null>(null);
+  const [result, setResult] = useState('');
   const [loading, setLoading] = useState(false);
-  const imgRef = useRef<HTMLImageElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 앱 실행 시 사진 선택창 자동 실행
-  useEffect(() => { fileInputRef.current?.click(); }, []);
-
-  const handleAnalyze = async () => {
-    if (!imgRef.current || !crop || crop.width === 0) return;
+  const handleUpload = async () => {
+    if (!image) return alert('사진을 선택해주세요!');
     setLoading(true);
+    const formData = new FormData();
+    formData.append('image', image);
 
-    const canvas = document.createElement('canvas');
-    const scaleX = imgRef.current.naturalWidth / imgRef.current.width;
-    const scaleY = imgRef.current.naturalHeight / imgRef.current.height;
-    canvas.width = crop.width; canvas.height = crop.height;
-    const ctx = canvas.getContext('2d');
-    
-    ctx?.drawImage(
-      imgRef.current, crop.x * scaleX, crop.y * scaleY, crop.width * scaleX, crop.height * scaleY,
-      0, 0, crop.width, crop.height
-    );
-
-    canvas.toBlob(async (blob) => {
-      if (!blob) return;
-      const formData = new FormData();
-      formData.append('image', blob);
-
-      try {
-        const res = await fetch('/api/analyze', { method: 'POST', body: formData });
-        const { text } = await res.json();
-        
-        // 클립보드 자동 복사
-        await navigator.clipboard.writeText(text);
-        alert('복사되었습니다!\n' + text);
-        
-        // 컴팩트하게 이미지 즉시 삭제
-        setImgSrc('');
-      } catch (error) {
-        alert('분석 중 오류가 발생했습니다.');
-      } finally {
-        setLoading(false);
-      }
-    }, 'image/jpeg');
+    try {
+      const res = await fetch('/api/analyze', { method: 'POST', body: formData });
+      const data = await res.json();
+      // 백엔드에서 보낸 'text' 필드를 정확히 읽어옵니다.
+      setResult(data.text || data.error || '결과를 읽을 수 없습니다.');
+    } catch (err) {
+      setResult('서버 연결 실패');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <main style={{ padding: '20px', textAlign: 'center', fontFamily: 'sans-serif' }}>
-      <input type="file" accept="image/*" capture="environment" ref={fileInputRef} onChange={(e) => {
-        const reader = new FileReader();
-        reader.onload = () => setImgSrc(reader.result?.toString() || '');
-        if (e.target.files?.[0]) reader.readAsDataURL(e.target.files[0]);
-      }} style={{ display: 'none' }} />
-      
-      {imgSrc ? (
-        <>
-          <p>분석할 영역을 지정해주세요.</p>
-          <ReactCrop crop={crop} onChange={setCrop}>
-            <img ref={imgRef} src={imgSrc} alt="영수증" style={{ maxWidth: '100%', maxHeight: '60vh' }} />
-          </ReactCrop>
-          <br />
-          <button onClick={handleAnalyze} disabled={loading} style={{ marginTop: '20px', padding: '15px 30px', fontSize: '16px' }}>
-            {loading ? '분석 중...' : '이 영역 추출 후 복사하기'}
-          </button>
-        </>
-      ) : (
-        <button onClick={() => fileInputRef.current?.click()} style={{ padding: '15px', fontSize: '16px' }}>
-          사진 다시 선택
-        </button>
+    <div style={{ padding: '20px', maxWidth: '500px', margin: '0 auto', textAlign: 'center' }}>
+      <h2 style={{ marginBottom: '20px' }}>🧾 영수증 스캐너</h2>
+      <input type="file" accept="image/*" onChange={(e) => setImage(e.target.files?.[0] || null)} style={{ marginBottom: '20px' }} />
+      <button onClick={handleUpload} disabled={loading} style={{ width: '100%', padding: '15px', background: '#0070f3', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold' }}>
+        {loading ? '분석 중...' : '영수증 분석하기'}
+      </button>
+      {result && (
+        <div style={{ marginTop: '20px', padding: '15px', background: '#f0f0f0', borderRadius: '8px', wordBreak: 'break-all' }}>
+          <strong>[분석 결과]</strong><br />{result}
+        </div>
       )}
-    </main>
+    </div>
   );
 }
