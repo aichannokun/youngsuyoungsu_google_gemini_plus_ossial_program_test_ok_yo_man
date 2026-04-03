@@ -4,8 +4,11 @@ import { NextResponse } from 'next/server';
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
-    const file = formData.get('image') as File;
-    const base64Data = Buffer.from(await file.arrayBuffer()).toString('base64');
+    const files = formData.getAll('images') as File[];
+
+    if (files.length === 0) {
+      return NextResponse.json({ error: '파일 없음' }, { status: 400 });
+    }
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
     const modelNames = [
@@ -14,7 +17,6 @@ export async function POST(req: Request) {
       'gemini-1.5-flash',
     ];
 
-    // ✅ 프롬프트를 여기서 한 번만 정의
     const prompt = `
 이미지를 분석하여 다음 두 가지 경우 중 하나로 출력해줘:
 
@@ -46,22 +48,34 @@ export async function POST(req: Request) {
 ------------------------------------------------------------
 `;
 
-    let lastError = null;
-    for (const name of modelNames) {
-      try {
-        const model = genAI.getGenerativeModel({ model: name });
-        const result = await model.generateContent([
-          prompt, // ✅ 프롬프트 삽입
-          { inlineData: { data: base64Data, mimeType: file.type || 'image/jpeg' } },
-        ]);
-        return NextResponse.json({ text: result.response.text().trim() });
-      } catch (err: any) {
-        lastError = err;
-        if (err.status === 404) continue;
-        throw err;
+    const results: string[] = [];
+
+    for (const file of files) {
+      const base64Data = Buffer.from(await file.arrayBuffer()).toString('base64');
+      let lastError = null;
+
+      for (const name of modelNames) {
+        try {
+          const model = genAI.getGenerativeModel({ model: name });
+          const result = await model.generateContent([
+            prompt,
+            { inlineData: { data: base64Data, mimeType: file.type || 'image/jpeg' } },
+          ]);
+          results.push(result.response.text().trim());
+          break; // 성공했으면 다음 파일로
+        } catch (err: any) {
+          lastError = err;
+          if (err.status === 404) continue; // 404면 다음 모델 시도
+          throw err;
+        }
+      }
+
+      if (lastError && results.length < files.indexOf(file) + 1) {
+        throw lastError;
       }
     }
-    throw lastError;
+
+    return NextResponse.json({ text: results.join('\n\n---\n\n') });
 
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: error.status || 500 });
