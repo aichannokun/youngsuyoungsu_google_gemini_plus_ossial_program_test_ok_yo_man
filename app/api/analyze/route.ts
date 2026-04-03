@@ -11,7 +11,6 @@ export async function POST(req: Request) {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
     const model = genAI.getGenerativeModel({ model: 'gemini-3-flash' });
 
-    // 가계부 맞춤형 프롬프트
     const prompt = "이 영수증 부분에서 날짜, 상호명, 품목, 합계 금액을 파악해서 'YYYY-MM-DD | 상호명 | 핵심품목 | 금액원' 형태로 딱 한 줄만 반환해줘.";
     
     const result = await model.generateContent([
@@ -25,4 +24,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: '분석 실패' }, { status: 500 });
   }
 }
-
