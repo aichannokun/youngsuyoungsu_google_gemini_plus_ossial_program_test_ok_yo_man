@@ -16,7 +16,6 @@ export async function POST(req: Request) {
     const modelNames = [
       process.env.GEMINI_MODEL || 'Gemini-2.5-Flash-Lite',
       'Gemini-2.5-Flash'
-      'gemini-2.0-flash-Lite',
       'gemini-2.0-flash',
       'gemini-1.5-flash',
     ];
