@@ -25,13 +25,13 @@ async function compressImage(file: File): Promise<File> {
   });
 }
 
+  // 수정 후 (route.ts랑 동일하게)
   const modelNames = [
-  'gemini-3.1-Flash-Lite',
-  'gemini-3.0-Flash',
-  'gemini-2.5-Flash',
-  'gemini-2.5-Flash-Lite',
-  'gemini-2.0-Flash',
-  'gemini-1.5-Flash',
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
+    'gemini-3-flash-preview',
+    'gemini-3.1-flash-lite-preview',
+    'gemini-2.0-flash',
 ];
 
  export default function Home() {
