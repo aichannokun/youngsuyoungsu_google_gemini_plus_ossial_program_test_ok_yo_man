@@ -3,25 +3,28 @@ import { NextResponse } from 'next/server';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// 안정적인 순서대로 나열 (구버전 deprecated되면 자동으로 다음으로 넘어감)
+const MODEL_PRIORITY = [
+  'models/gemini-2.5-flash',           // 1순위: 검증됨, 안정적
+  'models/gemini-2.5-flash-lite',      // 2순위: 가볍고 빠름
+  'models/gemini-3-flash-preview',     // 3순위: 최신
+  'models/gemini-3.1-flash-lite-preview', // 4순위: 최신 경량
+  'models/gemini-2.0-flash',           // 5순위: 예비
+];
+
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
     const files = formData.getAll('images') as File[];
-
     if (files.length === 0) {
       return NextResponse.json({ error: '파일 없음' }, { status: 400 });
     }
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-    const modelNames = [
-      process.env.GEMINI_MODEL || 'gemini-3.0-flash',
-    ];
-    const MAX_ATTEMPTS = 10;
-    
+
     const prompt = `이미지를 분석하여 아래 두 형식 중 하나로만 출력해줘.
 구분선, 설명 문구, 반복 출력 없이 결과만 딱 한 번 출력할 것. 
 금액에는 항상 끝에 "원"을 함께 기록할것.
-
 [온라인 쇼핑몰 주문 내역 또는 결제 완료 스크린샷인 경우]
 소비 금액 / 배송비(0원이거나 무료배송이면 "무배"라 기록. 그외에는 명확한 금액 기록)
 판매액 : 원래 판매 금액
@@ -34,7 +37,6 @@ export async function POST(req: Request) {
 -판매 : 쇼핑몰/사이트명
 >상품 제목
     (옵션 정보)
-
 [종이 영수증을 촬영한 사진인 경우]
 합계 금액 : 영수증에 적힌 총합계
 최종 결제 금액 : (결제수단/카드사) 실제 지불 금액
@@ -50,12 +52,11 @@ export async function POST(req: Request) {
 
     for (const file of files) {
       const base64Data = Buffer.from(await file.arrayBuffer()).toString('base64');
-      let lastError = null;
       let success = false;
+      let lastError = null;
 
-      for (let i = 0; i < MAX_ATTEMPTS; i++) {
-        if (i > 0) await sleep(5000);
-        const modelName = modelNames[0]; // always gemini-3.0-flash
+      // 모델을 순서대로 시도 (진짜 폴백!)
+      for (const modelName of MODEL_PRIORITY) {
         try {
           const model = genAI.getGenerativeModel({ model: modelName });
           const result = await model.generateContent([
@@ -64,10 +65,11 @@ export async function POST(req: Request) {
           ]);
           results.push(result.response.text().trim());
           success = true;
-          break;
+          break; // 성공하면 다음 모델 시도 안함
         } catch (err: any) {
           lastError = err;
-          continue;
+          await sleep(1000); // 모델 전환 시 1초만 대기
+          continue; // 다음 모델로
         }
       }
 
@@ -75,7 +77,6 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ text: results.join('\n\n---\n\n') });
-
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: error.status || 500 });
   }
