@@ -1,7 +1,0 @@
-[build]
-  command = "npm run build"
-  publish = ".next"
-
-[functions]
-  directory = "netlify/functions"
-  # timeout cannot be set here; use Netlify plan or background functions for longer runs
